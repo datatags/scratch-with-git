@@ -3,6 +3,12 @@ echo Preparing to compile.
 if exist project.sb2 goto confirmdel
 if exist project.zip goto confirmdel
 :RETURN
+echo Would you like to compile for the online or offline editor?
+echo 1) Offline editor (smaller file size, but takes an indeterminately long time to upload to the online editor.)
+echo 2) Online  editor (larger file size, works in both the online and offline editors.) [Default]
+echo Please choose either 1 or 2 and press that key accordingly.
+choice /c 12
+set compression=%errorlevel%
 echo Checking for 7-Zip...
 REM for testing: goto USEPS
 set zippath=null
@@ -36,16 +42,17 @@ if "%supported%" equ "1" (
 echo Compressing files...
 REM Compress project.json and all files in the assets folder into a zip file named project.zip
 REM PowerShell by default compresses the files in a zip more, but the offline editor seems to still be able to read it.  On a ~30MB project it reduced the size to ~24MB after decompiling and recompiling.
-REM If you want the approximate level of compression that the Scratch editor uses, add `-CompressionLevel NoCompression` without quotes immediately before the project.zip argument.
-powershell "Compress-Archive -Path .\project.json, .\assets\*.* project.zip"
+if %compression% equ 2 set args=-CompressionLevel NoCompression
+powershell "Compress-Archive -Path .\project.json, .\assets\*.* %args% project.zip"
 echo Changing file extension...
 REM PowerShell won't even create a zip file with an extension other than .zip so we change it afterwards.
 rename project.zip project.sb2
 goto END
 :USESZ
 echo Compressing files...
+if %compression% equ 2 set args=-mx=0
 REM Since 7-Zip supports compressing in several different formats, it needs to know the extension it's compressing to.
-%zippath% a project.zip assets\*.* project.json
+%zippath% a %args% project.zip assets\*.* project.json
 echo Changing file extension...
 rename project.zip project.sb2
 goto END

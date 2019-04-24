@@ -1,9 +1,5 @@
 @ECHO OFF
 echo Preparing for decompile.
-echo Removing old files...
-if exist assets\*.* del /Q assets\*.*
-if exist project.json del /Q project.json
-
 REM we check to see if the files exist so we don't end up doing useless stuff
 if exist *.sb2 set sb2=1
 if exist *.sb3 set sb3=1
@@ -18,7 +14,6 @@ if not defined sb2 (
 
 echo Checking for 7-Zip...
 REM for testing: goto USEPS
-set zippath=null
 REM Proper 7-Zip install (ex. 64-bit on 64-bit)
 if exist "C:\Program Files\7-Zip\7z.exe" set zippath="C:\Program Files\7-Zip\7z.exe"
 REM Improper 7-Zip install (32-bit install on 64-bit computer)
@@ -31,11 +26,11 @@ if not defined zippath (
 	goto usesz
 )
 
-REM Short for UsePowerShell. I could probably just say UPS but then system admins would think of a giant battery, and normal people would think of a package delivery service.  But this way, nobody gets confused.
+REM Short for UsePowerShell. I could probably just say UPS but then system admins would think of a giant battery, and normal people would think of a package delivery service.
 :USEPS
 echo Could not find a 7-Zip install, using PowerShell for zip extraction.
 echo You should install 7-Zip. It makes this whole process faster and easier.  That and it can help you with archives in general.
-echo Checking for correct version...
+echo Checking for correct version.  This may take a minute.
 REM So this is the best way I could find to check if the installed version of PowerShell supports archive commands, basically run the command and detect if it fails
 for /f "tokens=* USEBACKQ" %%F in (`powershell "if (Get-Command \"Expand-Archive\" -errorAction SilentlyContinue) {echo 1}"`) do (
 	set supported=%%F
@@ -53,19 +48,32 @@ if "%supported%" equ "1" (
 )
 
 REM TODO: Extract each project in its own directory since this will get confused if there's more than one project here.
-
-echo Changing extension and extracting files...
+if exist *.zip (
+	echo Found other .zip file, temporarily renaming to avoid conflicts...
+	rename *.zip *.ziptemp
+)
+echo Changing extension and extracting files.  This may take a minute.
 REM PowerShell refuses to extract anything that doesn't have a .zip extension, even if it's a zip file at heart.
 REM Extract all files in *.zip to the folder named assets. We'll move project.json out in a minute.
 if defined sb2 (
 	rename *.sb2 *.zip
-	powershell "Expand-Archive -DestinationPath .\assets\ *.zip"
+	for %%f in (*.zip) do (
+		mkdir %%~nf
+		powershell "Expand-Archive -DestinationPath .\%%~nf\assets\ %%f"
+	)
 	rename *.zip *.sb2
 )
 if defined sb3 (
 	rename *.sb3 *.zip
-	powershell "Expand-Archive -DestinationPath .\assets\ *.zip"
+	for %%f in (*.zip) do (
+		mkdir %%~nf
+		powershell "Expand-Archive -DestinationPath .\%%~nf\assets\ %%f"
+	)
 	rename *.zip *.sb3
+)
+if exist *.ziptemp (
+	echo Putting zip files back...
+	rename *.ziptemp *.zip
 )
 echo Setting date on files...
 REM TODO: Set dates on files to same as project?
@@ -74,20 +82,57 @@ REM Interestingly, when extracted from File Explorer, the resulting dates are in
 REM All this does is set all date attributes of all extracted files to the current date and time.
 REM We don't need to with 7-Zip though. Another reason you should get 7-Zip instead of using PowerShell for archive work!
 REM I don't know much about PowerShell (I pieced this together from a couple StackExchange answers) so if there's a way to make this better shoot me a pull request!
-powershell "Get-ChildItem .\assets\ | Foreach-Object {$_.lastwritetime=$(Get-Date);$_.lastaccesstime=$(Get-Date);$_.creationtime=$(Get-Date)}"
+powershell "Get-ChildItem . | Get-ChildItem | Foreach-Object {$_.lastwritetime=$(Get-Date);$_.lastaccesstime=$(Get-Date);$_.creationtime=$(Get-Date)}"
 echo Moving project.json to root...
-move assets\project.json .
+for /d %%f in (*) do (
+	move %%f\assets\project.json %%f
+)
 goto END
 REM Short for -- you guessed it -- Use Seven Zip or Use 7-Zip but I try to avoid using digits in labels.
 :USESZ
 echo Found a 7-Zip executable, using it.
 REM extract *.sb2 to folder assets using 7-Zip
-if defined sb2 %zippath% x -oassets *.sb2
-if defined sb3 %zippath% x -oassets *.sb3
+REM if defined sb2 %zippath% x -oassets *.sb2
+REM if defined sb3 %zippath% x -oassets *.sb3
+echo checking2
+if defined sb2 (
+	echo defined2
+	for %%w in (*.sb2) do (
+		echo loop2
+		REM ~n is filename only, no extension
+		set name=%%~nw
+		if exist %name% (
+			echo Folder for %name% already exists, skipping
+		) else (
+			mkdir %name%
+			%zippath% x -o%name%\assets %%w
+		)
+	)
+)
+
+echo checking3
+if defined sb3 (
+	echo defined3
+	for %%h in (*.sb3) do (
+		echo loop3
+		set name=%%~nh
+		if exist %name% (
+			echo Folder for %name% already exists, skipping
+		) else (
+			mkdir %name%
+			%zippath% x -o%name%\assets %%h
+		)
+	)
+)
 echo Moving project.json to root...
-move assets\project.json .
+for /d %%f in (*) do (
+	if %%f neq .git (
+		move %%f\assets\project.json %%f\
+	)
+)
 goto END
 :END
 echo Done.
-REM Always pause at the end of a batch file because otherwise if the user double-clicked on it instead of running it from a command prompt they wouldn't see the final output becuase the window would just close.
+REM Always pause at the end of a batch file because otherwise if the user double-clicked on it instead of running it from a command prompt they wouldn't see the final output because the window would just close.
 pause
+*//*

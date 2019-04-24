@@ -6,8 +6,8 @@ if exist project.sb3 goto confirmdel
 if exist project.zip goto confirmdel
 :RETURN
 echo Would you like to compile for the offline or online editor?
-echo 1) Smaller size (takes slightly longer, doesn't work in Scratch 2 online editor)
-echo 2) Larger size (very fast, works in Scratch 2 online editor)
+echo 1) Smaller size (takes slightly longer to compress, doesn't work in Scratch 2 online editor)
+echo 2) Larger size (very fast compression, works in Scratch 2 online editor)
 echo Please choose either 1 or 2 and press that key accordingly.
 choice /c 12
 set compression=%errorlevel%
@@ -24,14 +24,13 @@ if exist assets/0.* (
 )
 echo Checking for 7-Zip...
 REM for testing: goto USEPS
-set zippath=null
 REM Proper 7-Zip install (i.e. 64-bit on 64-bit)
 if exist "C:\Program Files\7-Zip\7z.exe" set zippath="C:\Program Files\7-Zip\7z.exe"
 REM Improper 7-Zip install (32-bit install on 64-bit computer)
 if exist "C:\Program Files (x86)\7-Zip\7z.exe" set zippath="C:\Program Files (x86)\7-Zip\7z.exe"
 REM Portable 7-Zip executable
 if exist "7za.exe" set zippath="7za.exe"
-if %zippath% equ null (
+if not defined zippath (
 	goto useps
 ) else (
 	goto usesz

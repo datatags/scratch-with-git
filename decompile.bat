@@ -94,40 +94,42 @@ echo Found a 7-Zip executable, using it.
 REM extract *.sb2 to folder assets using 7-Zip
 REM if defined sb2 %zippath% x -oassets *.sb2
 REM if defined sb3 %zippath% x -oassets *.sb3
-echo checking2
+
 if defined sb2 (
-	echo defined2
-	for %%w in (*.sb2) do (
-		echo loop2
+	set name=
+	for %%f in (*.sb2) do (
+		echo "loop2"
 		REM ~n is filename only, no extension
-		set name=%%~nw
-		if exist %name% (
+		set name=%%~nf
+		if exist "%name%" (
 			echo Folder for %name% already exists, skipping
 		) else (
 			mkdir %name%
-			%zippath% x -o%name%\assets %%w
+			%zippath% x -o"%name%\assets" "%%f"
 		)
 	)
 )
-
 echo checking3
 if defined sb3 (
 	echo defined3
-	for %%h in (*.sb3) do (
-		echo loop3
-		set name=%%~nh
-		if exist %name% (
+	for %%f in (*.sb3) do (
+		echo loop3: %%f: %%~nf
+		echo %name%
+		set "name="
+		set "name=%%~nf"
+		echo %name%
+		if exist "%name%" (
 			echo Folder for %name% already exists, skipping
 		) else (
-			mkdir %name%
-			%zippath% x -o%name%\assets %%h
+			mkdir "%name%"
+			%zippath% x -o"%name%\assets" "%%f"
 		)
 	)
 )
 echo Moving project.json to root...
 for /d %%f in (*) do (
-	if %%f neq .git (
-		move %%f\assets\project.json %%f\
+	if "%%f" neq ".git" (
+		move "%%f\assets\project.json" "%%f\"
 	)
 )
 goto END
@@ -135,4 +137,3 @@ goto END
 echo Done.
 REM Always pause at the end of a batch file because otherwise if the user double-clicked on it instead of running it from a command prompt they wouldn't see the final output because the window would just close.
 pause
-*//*

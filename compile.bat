@@ -1,15 +1,17 @@
 @ECHO OFF
 set args=
 echo Preparing to compile.
-if exist project.sb2 goto confirmdel
-if exist project.sb3 goto confirmdel
-if exist project.zip goto confirmdel
 :RETURN
-echo Would you like to compile for the offline or online editor?
-echo 1) Smaller size (takes slightly longer to compress, doesn't work in Scratch 2 online editor)
-echo 2) Larger size (very fast compression, works in Scratch 2 online editor)
-echo Please choose either 1 or 2 and press that key accordingly.
-choice /c 12
+if exist *.sb2 goto confirmdel
+if exist *.sb3 goto confirmdel
+if exist *.zip goto confirmdel
+if exist assets goto migrate
+echo What level of compression would you like to use?
+echo 1) Small size (takes a little while to compress, small file size. Usually negligible benefit)
+echo 2) [Recommended] Smaller size (takes slightly longer to compress)
+echo 3) Larger size (no compression, potentially slower upload to online editor)
+echo Please choose either 1, 2, or 3 and press that key accordingly.
+choice /c 123
 set compression=%errorlevel%
 REM This uses the naming convention difference between Scratch 2 and 3 to detect which one we're working on:
 REM Scratch 2 projects use base-10-incrementally-named assets named as 0.*, 1.*, 2.* etc.
@@ -22,6 +24,7 @@ if exist assets/0.* (
 	echo Detected Scratch 3 project
 	set scratchver=3
 )
+
 echo Checking for 7-Zip...
 REM for testing: goto USEPS
 REM Proper 7-Zip install (i.e. 64-bit on 64-bit)
@@ -53,38 +56,58 @@ if "%supported%" equ "1" (
 )
 echo Compressing files...
 REM Compress project.json and all files in the assets folder into a zip file named project.zip
-REM PowerShell by default compresses the files in a zip more, but the offline editor seems to still be able to read it.  On a ~30MB project it reduced the size to ~24MB after decompiling and recompiling.
-if %compression% equ 2 set args=-CompressionLevel NoCompression
-powershell "Compress-Archive -Path .\project.json, .\assets\*.* %args% project.zip"
-echo Changing file extension...
+REM PowerShell compression has three modes: Optimal, Fastest, and NoCompression. Optimal is default.
+if %compression% equ 2 set args=-CompressionLevel Fastest
+if %compression% equ 3 set args=-CompressionLevel NoCompression
+for /d %%f in (*) do (
+	powershell "Compress-Archive -Path '.\%%f\project.json', '.\%%f\assets\*.*' %args% '%%f.zip'"
+)
+echo Changing file extensions...
 REM PowerShell won't even create a zip file with an extension other than .zip so we change it afterwards.
-rename project.zip project.sb%scratchver%
+rename *.zip *.sb%scratchver%
 goto END
 :USESZ
-echo Compressing files...
-if %compression% equ 2 set args=-mx=0
-REM Since 7-Zip supports compressing in several different formats, it needs to know the extension it's compressing to.
-%zippath% a %args% project.zip .\assets\*.* project.json
-echo Changing file extension as for Scratch %scratchver%...
-rename project.zip project.sb%scratchver%
+echo Compressing files using Scratch %scratchver%...
+REM 7-Zip has several compression modes, usually between 0-9.  9 is most, 0 is none, 5 is default.
+if %compression% equ 1 set args=-mx=9
+if %compression% equ 3 set args=-mx=0
+for /d %%f in (*) do (
+	REM Since 7-Zip supports compressing in several different formats, it needs to know the extension it's compressing to.
+	%zippath% a %args% "%%f.zip" ".\%%f\assets\*.*" ".\%%f\project.json"
+	rename *.zip *.sb%scratchver%
+)
 goto END
 :CONFIRMDEL
 REM All caps may not have been necessary but it gets the point across.
-echo WARNING! THIS WILL OVERWRITE project.sb2 / project.sb3 AND project.zip!  IF YOU DO NOT WANT THEM TO BE OVERWRITTEN PLEASE RENAME THEM BEFORE CONTINUING!
-echo Do you accept that continuing will permanently and irreparably overwrite project.sb2 / project.sb3 and project.zip?  If so, please confirm by typing yes.  Otherwise, just press enter.
+echo WARNING! THIS WILL REPLACE ALL .sb2, .sb3, and .zip FILES IN THIS DIRECTORY!  IF YOU DO NOT WANT THEM TO BE OVERWRITTEN PLEASE MOVE THEM BEFORE CONTINUING!
+echo Do you accept that continuing will permanently and irreparably overwrite ALL .sb2, .sb3, and .zip files?  If so, please confirm by typing yes.  Otherwise, just press enter.
 REM I like little > characters when I'm supposed to type something.
 set /p confirm=^>
 if "%confirm%" equ "yes" (
 	echo Deleting.
-	if exist project.sb2 del project.sb2
-	if exist project.sb3 del project.sb3
-	if exist project.zip del project.zip
+	if exist *.sb2 del *.sb2
+	if exist *.sb3 del *.sb3
+	if exist *.zip del *.zip
 	goto return
 ) else (
 	echo Script cannot continue without deleting files, terminating.
 	exit /b 1
 )
-
+:MIGRATE
+echo You seem to be using the old data format. You can auto-m igrate to the new format by letting the script place files in a folder called project. You can rename it later.
+echo You can also migrate manually by simply moving the assets folder and project.json into a folder named the same as your project.
+echo Migrate automatically? [Y/N]
+choice /n
+echo %errorlevel%
+if "%errorlevel%" equ "1" (
+	mkdir project
+	move assets project\
+	move project.json project\
+	echo Migration finished.
+	goto RETURN
+)
+echo Please re-run the script once you have migrated.
+exit /b 1
 :END
-echo Project successfully compiled.
+echo All projects compiled.
 pause

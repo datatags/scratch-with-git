@@ -1,4 +1,12 @@
 @ECHO OFF
+REM ===== RESET VARIABLES =====
+set sb2=
+set sb3=
+set zippath=
+set supported=
+set name=
+REM ===== RESET VARIABLES =====
+
 echo Preparing for decompile.
 REM we check to see if the files exist so we don't end up doing useless stuff
 if exist *.sb2 set sb2=1
@@ -56,18 +64,32 @@ echo Changing extension and extracting files.  This may take a minute.
 REM PowerShell refuses to extract anything that doesn't have a .zip extension, even if it's a zip file at heart.
 REM Extract all files in *.zip to the folder named assets. We'll move project.json out in a minute.
 if defined sb2 (
+	setlocal ENABLEDELAYEDEXPANSION
 	rename *.sb2 *.zip
 	for %%f in (*.zip) do (
-		mkdir %%~nf
-		powershell "Expand-Archive -DestinationPath .\%%~nf\assets\ %%f"
+		REM ~n is filename only, no extension
+		set name=%%~nf
+		if exist "!name!" (
+			echo Folder for !name! already exists, skipping
+		) else (
+			mkdir "!name!"
+			powershell "Expand-Archive -DestinationPath '.\%%~nf\assets\' '%%f'"
+		)
 	)
 	rename *.zip *.sb2
 )
 if defined sb3 (
+	setlocal ENABLEDELAYEDEXPANSION
 	rename *.sb3 *.zip
 	for %%f in (*.zip) do (
-		mkdir %%~nf
-		powershell "Expand-Archive -DestinationPath .\%%~nf\assets\ %%f"
+		REM ~n is filename only, no extension
+		set name=%%~nf
+		if exist "!name!" (
+			echo Folder for !name! already exists, skipping
+		) else (
+			mkdir "!name!"
+			powershell "Expand-Archive -DestinationPath '.\%%~nf\assets\' '%%f'"
+		)
 	)
 	rename *.zip *.sb3
 )
@@ -85,7 +107,9 @@ REM I don't know much about PowerShell (I pieced this together from a couple Sta
 powershell "Get-ChildItem . | Get-ChildItem | Foreach-Object {$_.lastwritetime=$(Get-Date);$_.lastaccesstime=$(Get-Date);$_.creationtime=$(Get-Date)}"
 echo Moving project.json to root...
 for /d %%f in (*) do (
-	move %%f\assets\project.json %%f
+	if exist "%%f\assets\project.json" (
+		move "%%f\assets\project.json" "%%f"
+	)
 )
 goto END
 REM Short for -- you guessed it -- Use Seven Zip or Use 7-Zip but I try to avoid using digits in labels.
@@ -96,33 +120,28 @@ REM if defined sb2 %zippath% x -oassets *.sb2
 REM if defined sb3 %zippath% x -oassets *.sb3
 
 if defined sb2 (
-	set name=
+	setlocal ENABLEDELAYEDEXPANSION
 	for %%f in (*.sb2) do (
-		echo "loop2"
 		REM ~n is filename only, no extension
 		set name=%%~nf
-		if exist "%name%" (
-			echo Folder for %name% already exists, skipping
+		if exist "!name!" (
+			echo Folder for !name! already exists, skipping
 		) else (
-			mkdir %name%
-			%zippath% x -o"%name%\assets" "%%f"
+			mkdir "!name!"
+			%zippath% x -o"!name!\assets" "%%f"
 		)
 	)
 )
-echo checking3
 if defined sb3 (
-	echo defined3
+	REM without delayed expansion %name% is empty for some reason?
+	setlocal ENABLEDELAYEDEXPANSION
 	for %%f in (*.sb3) do (
-		echo loop3: %%f: %%~nf
-		echo %name%
-		set "name="
-		set "name=%%~nf"
-		echo %name%
-		if exist "%name%" (
-			echo Folder for %name% already exists, skipping
+		set name=%%~nf
+		if exist "!name!" (
+			echo Folder for !name! already exists, skipping
 		) else (
-			mkdir "%name%"
-			%zippath% x -o"%name%\assets" "%%f"
+			mkdir "!name!"
+			%zippath% x -o"!name!\assets" "%%f"
 		)
 	)
 )

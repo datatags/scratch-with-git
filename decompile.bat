@@ -1,7 +1,7 @@
 @ECHO OFF
 REM ===== USER-SET VARIABLES =====
 REM You should set this to the (unquoted) path of your perl.exe interpreter. It should work out-of-the-box if you have Strawberry Perl installed to the default directory.
-set perl=C:\Strawberry\perl\bin\per.exe
+set perl=C:\Strawberry\perl\bin\perl.exe
 REM ===== USER-SET VARIABLES =====
 
 REM ===== RESET VARIABLES =====

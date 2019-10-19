@@ -1,10 +1,16 @@
 @ECHO OFF
+REM ===== USER-SET VARIABLES =====
+REM You should set this to the (unquoted) path of your perl.exe interpreter. It should work out-of-the-box if you have Strawberry Perl installed to the default directory.
+set perl=C:\Strawberry\perl\bin\per.exe
+REM ===== USER-SET VARIABLES =====
+
 REM ===== RESET VARIABLES =====
 set sb2=
 set sb3=
 set zippath=
 set supported=
 set name=
+set projects=0
 REM ===== RESET VARIABLES =====
 
 echo Preparing for decompile.
@@ -19,7 +25,6 @@ if not defined sb2 (
 		goto END
 	)
 )
-
 echo Checking for 7-Zip...
 REM for testing: goto USEPS
 REM Proper 7-Zip install (ex. 64-bit on 64-bit)
@@ -74,6 +79,7 @@ if defined sb2 (
 		) else (
 			mkdir "!name!"
 			powershell "Expand-Archive -DestinationPath '.\%%~nf\assets\' '%%f'"
+			set /a projects=projects+1
 		)
 	)
 	rename *.zip *.sb2
@@ -89,6 +95,7 @@ if defined sb3 (
 		) else (
 			mkdir "!name!"
 			powershell "Expand-Archive -DestinationPath '.\%%~nf\assets\' '%%f'"
+			set /a projects=projects+1
 		)
 	)
 	rename *.zip *.sb3
@@ -105,13 +112,8 @@ REM All this does is set all date attributes of all extracted files to the curre
 REM We don't need to with 7-Zip though. Another reason you should get 7-Zip instead of using PowerShell for archive work!
 REM I don't know much about PowerShell (I pieced this together from a couple StackExchange answers) so if there's a way to make this better shoot me a pull request!
 powershell "Get-ChildItem . | Get-ChildItem | Foreach-Object {$_.lastwritetime=$(Get-Date);$_.lastaccesstime=$(Get-Date);$_.creationtime=$(Get-Date)}"
-echo Moving project.json to root...
-for /d %%f in (*) do (
-	if exist "%%f\assets\project.json" (
-		move "%%f\assets\project.json" "%%f"
-	)
-)
-goto END
+
+goto MOVEJSON
 REM Short for -- you guessed it -- Use Seven Zip or Use 7-Zip but I try to avoid using digits in labels.
 :USESZ
 echo Found a 7-Zip executable, using it.
@@ -129,6 +131,7 @@ if defined sb2 (
 		) else (
 			mkdir "!name!"
 			%zippath% x -o"!name!\assets" "%%f"
+			set /a projects=projects+1
 		)
 	)
 )
@@ -142,8 +145,14 @@ if defined sb3 (
 		) else (
 			mkdir "!name!"
 			%zippath% x -o"!name!\assets" "%%f"
+			set /a projects=projects+1
 		)
 	)
+)
+:MOVEJSON
+if %projects% equ 0 (
+	echo No projects changed, did you forget to delete a project folder to regen?
+	goto END
 )
 echo Moving project.json to root...
 for /d %%f in (*) do (
@@ -151,7 +160,22 @@ for /d %%f in (*) do (
 		move "%%f\assets\project.json" "%%f\"
 	)
 )
-goto END
+if exist "%perl%" (
+	echo Perl interpreter found, prettifying project.json
+) else (
+	echo Could not find Perl interpreter, project.json will not be prettified.
+	echo It is recommended to install a Perl interpreter. Since Git seems to track changes by line,
+	echo it will not show changes in 'git diff' or commit overview.
+	echo If some contributors have Perl and some don't, it will look weird on Git so don't do that. :^)
+	goto END
+)
+for /d %%f in (*) do (
+	if exist "%%f\project.json" (
+		%perl% prettifyjson.pl "%%f\project.json" > "%%f\prettify-project.json"
+		move "%%f\prettify-project.json" "%%f\project.json"
+	)
+)
+
 :END
 echo Done.
 REM Always pause at the end of a batch file because otherwise if the user double-clicked on it instead of running it from a command prompt they wouldn't see the final output because the window would just close.
